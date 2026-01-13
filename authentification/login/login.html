@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="fr">
+<head>
+    <link rel="icon" type="image/png" href="Logo_Alkyon_png.png">
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Connexion - Alkyon</title>
+    <link rel="stylesheet" href="login.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="navbar-logo">
+            <img src="Logo_Alkyon_Backround.png" alt="Logo" height="40">
+        </div>
+        <ul class="navbar-links">
+            <li><a href="../../Alkyon.html">Accueil</a></li>
+            <li><a href="#">Fonctionnalités</a></li>
+            <hr style="margin-top: 5px; margin-bottom: 5px;">
+            <li><a href="login.html">Se connecter</a></li>
+            <li><a href="../register/register.html">S'inscrire</a></li>
+        </ul>
+    </nav>
+
+</form>
+    <div class="login-container">
+        <h1>Connexion</h1>
+        <p class="subtitle">Bienvenue ! Connectez-vous à votre compte</p>
+
+        <form method="post" action="/login">
+            <div class="form-group">
+                <label for="email">Email</label>
+                <input type="email" name="email" id="email" placeholder="votre@email.com" required>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Mot de passe</label>
+                <input type="password" name="password" id="password" placeholder="Entrez votre mot de passe" required>
+            </div>
+
+            <div class="remember-forgot">
+                <label class="remember-me">
+                    <input type="checkbox" name="remember" id="remember">
+                    <span>Se souvenir de moi</span>
+                </label>
+                <a href="#" class="forgot-password">Mot de passe oublié ?</a>
+            </div>
+
+            <button class="login-btn" type="submit">Se connecter</button>
+        </form>
+
+        <div class="signup-link">
+            Pas encore de compte ? <a href="../register/register.html">S'inscrire</a>
+        </div>
+    </div>
+</body>
+</html>
