@@ -132,6 +132,10 @@ function handleLogin(event) {
         showMessage(result.message, 'success');
         setTimeout(() => {
             showDashboard();
+            // Rediriger vers Home.html après 1 seconde
+            setTimeout(() => {
+                window.location.href = '../Alkyon/Home.html';
+            }, 1000);
         }, 500);
     } else {
         showMessage(result.message, 'error');

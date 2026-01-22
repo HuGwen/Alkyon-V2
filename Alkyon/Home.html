@@ -14,7 +14,28 @@
             <li><a href="../Alkyon.html">Accueil</a></li>
             <li><a href="Fonctionnalité.html">Fonctionnalités</a></li>
                 <hr style="margin-top: 5px; margin-bottom: 5px;">
-            <li><a href="../authentification/index.html">Authentification</a></li>
+            <li><a href="#" onclick="handleLogoutHome(event)">Deconnexion</a></li>
         </ul>
     </nav>
     <!--Fin de la ligne de code principale utilisé sur tout les sites web HTML-->
+
+    <script>
+        // Vérifier si l'utilisateur est connecté
+        function checkAuthentication() {
+            const currentUser = localStorage.getItem('alkyon_current_user');
+            if (!currentUser) {
+                // L'utilisateur n'est pas connecté, redirection vers index.html
+                window.location.href = '../authentification/index.html';
+            }
+        }
+        
+        // Gérer la déconnexion
+        function handleLogoutHome(event) {
+            event.preventDefault();
+            localStorage.removeItem('alkyon_current_user');
+            window.location.href = '../authentification/index.html';
+        }
+        
+        // Vérifier à la charge de la page
+        window.addEventListener('load', checkAuthentication);
+    </script>
