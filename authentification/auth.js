@@ -1,68 +1,116 @@
-// Système d'authentification simple
+// Système d'authentification avec Supabase
+const SUPABASE_URL = 'https://zdwsmhvkboqmxmlwajim.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inpkd3NtaHZrYm9xbXhtbHdhamltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk1MTk0MTYsImV4cCI6MjA4NTA5NTQxNn0.kvK6NUwKJtcnsynuGAwJzxRzuHQa7KXKAdO7pstQMHo';
+
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
 class AuthSystem {
     constructor() {
-        // Stockage des utilisateurs en localStorage
-        this.usersKey = 'alkyon_users';
         this.currentUserKey = 'alkyon_current_user';
-        this.initializeUsers();
+        this.initializeSupabase();
     }
 
-    // Initialiser avec des utilisateurs de test
-    initializeUsers() {
-        if (!localStorage.getItem(this.usersKey)) {
-            const defaultUsers = [
-                { id: 1, name: 'Admin', email: 'admin@test.com', password: 'admin123' },
-                { id: 2, name: 'User', email: 'user@test.com', password: 'user123' }
-            ];
-            localStorage.setItem(this.usersKey, JSON.stringify(defaultUsers));
+    async initializeSupabase() {
+        try {
+            // Vérifier si l'utilisateur est déjà connecté
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session) {
+                this.setCurrentUser(session.user);
+            }
+        } catch (error) {
+            console.error('Erreur lors de l\'initialisation Supabase:', error);
         }
     }
 
-    // Récupérer tous les utilisateurs
-    getUsers() {
-        return JSON.parse(localStorage.getItem(this.usersKey)) || [];
-    }
 
     // Enregistrer un nouvel utilisateur
-    register(name, email, password) {
-        const users = this.getUsers();
-        
-        // Vérifier si l'email existe déjà
-        if (users.some(u => u.email === email)) {
-            return { success: false, message: 'Cet email est déjà utilisé.' };
+    async register(email, password, name) {
+        try {
+            // Créer l'utilisateur avec Supabase Auth
+            const { data, error } = await supabase.auth.signUp({
+                email: email,
+                password: password,
+                options: {
+                    data: {
+                        name: name
+                    }
+                }
+            });
+
+            if (error) {
+                return { success: false, message: error.message };
+            }
+
+            // Stocker le profil utilisateur dans la table 'profiles'
+            const { error: profileError } = await supabase
+                .from('profiles')
+                .insert({
+                    id: data.user.id,
+                    name: name,
+                    email: email
+                });
+
+            if (profileError) {
+                return { success: false, message: 'Erreur lors de la création du profil.' };
+            }
+
+            return { success: true, message: 'Inscription réussie! Vérifiez votre email.' };
+        } catch (error) {
+            return { success: false, message: error.message };
         }
-
-        // Créer le nouvel utilisateur
-        const newUser = {
-            id: Date.now(),
-            name: name,
-            email: email,
-            password: password // Simple pour ce projet
-        };
-
-        users.push(newUser);
-        localStorage.setItem(this.usersKey, JSON.stringify(users));
-        return { success: true, message: 'Inscription réussie! Vous pouvez maintenant vous connecter.' };
     }
 
     // Connecter un utilisateur
-    login(email, password) {
-        const users = this.getUsers();
-        const user = users.find(u => u.email === email && u.password === password);
+    async login(email, password) {
+        try {
+            const { data, error } = await supabase.auth.signInWithPassword({
+                email: email,
+                password: password
+            });
 
-        if (user) {
-            // Stocker l'utilisateur connecté
-            localStorage.setItem(this.currentUserKey, JSON.stringify(user));
+            if (error) {
+                return { success: false, message: 'Email ou mot de passe incorrect.' };
+            }
+
+            // Récupérer les informations du profil
+            const { data: profile, error: profileError } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', data.user.id)
+                .single();
+
+            if (profileError) {
+                return { success: false, message: 'Erreur lors de la récupération du profil.' };
+            }
+
+            // Stocker localement l'utilisateur connecté
+            const user = {
+                id: data.user.id,
+                email: data.user.email,
+                name: profile.name
+            };
+            this.setCurrentUser(user);
+
             return { success: true, message: 'Connexion réussie!', user: user };
+        } catch (error) {
+            return { success: false, message: error.message };
         }
-
-        return { success: false, message: 'Email ou mot de passe incorrect.' };
     }
 
     // Déconnecter l'utilisateur
-    logout() {
-        localStorage.removeItem(this.currentUserKey);
-        return { success: true, message: 'Déconnecté avec succès.' };
+    async logout() {
+        try {
+            await supabase.auth.signOut();
+            localStorage.removeItem(this.currentUserKey);
+            return { success: true, message: 'Déconnecté avec succès.' };
+        } catch (error) {
+            return { success: false, message: error.message };
+        }
+    }
+
+    // Définir l'utilisateur actuel en localStorage
+    setCurrentUser(user) {
+        localStorage.setItem(this.currentUserKey, JSON.stringify(user));
     }
 
     // Récupérer l'utilisateur actuellement connecté
@@ -126,20 +174,20 @@ function handleLogin(event) {
     const email = document.getElementById('loginEmail').value;
     const password = document.getElementById('loginPassword').value;
 
-    const result = auth.login(email, password);
-
-    if (result.success) {
-        showMessage(result.message, 'success');
-        setTimeout(() => {
-            showDashboard();
-            // Rediriger vers Home.html après 1 seconde
+    auth.login(email, password).then(result => {
+        if (result.success) {
+            showMessage(result.message, 'success');
             setTimeout(() => {
-                window.location.href = '../Alkyon/Home.html';
-            }, 1000);
-        }, 500);
-    } else {
-        showMessage(result.message, 'error');
-    }
+                showDashboard();
+                // Rediriger vers Home.html après 1 seconde
+                setTimeout(() => {
+                    window.location.href = '../Alkyon/Home.html';
+                }, 1000);
+            }, 500);
+        } else {
+            showMessage(result.message, 'error');
+        }
+    });
 }
 
 // Gérer l'inscription
@@ -150,34 +198,35 @@ function handleRegister(event) {
     const email = document.getElementById('registerEmail').value;
     const password = document.getElementById('registerPassword').value;
 
-    if (password.length < 4) {
-        showMessage('Le mot de passe doit contenir au moins 4 caractères.', 'error');
+    if (password.length < 6) {
+        showMessage('Le mot de passe doit contenir au moins 6 caractères.', 'error');
         return;
     }
 
-    const result = auth.register(name, email, password);
-
-    if (result.success) {
-        showMessage(result.message, 'success');
-        setTimeout(() => {
-            toggleForms();
-            document.getElementById('loginEmail').value = email;
-            document.getElementById('loginPassword').value = '';
-        }, 500);
-    } else {
-        showMessage(result.message, 'error');
-    }
+    auth.register(email, password, name).then(result => {
+        if (result.success) {
+            showMessage(result.message, 'success');
+            setTimeout(() => {
+                toggleForms();
+                document.getElementById('loginEmail').value = email;
+                document.getElementById('loginPassword').value = '';
+            }, 500);
+        } else {
+            showMessage(result.message, 'error');
+        }
+    });
 }
 
 // Gérer la déconnexion
 function handleLogout() {
-    auth.logout();
-    showMessage('Déconnecté avec succès.', 'success');
-    setTimeout(() => {
-        showLoginForm();
-        document.getElementById('loginEmail').value = '';
-        document.getElementById('loginPassword').value = '';
-    }, 500);
+    auth.logout().then(result => {
+        showMessage(result.message, 'success');
+        setTimeout(() => {
+            showLoginForm();
+            document.getElementById('loginEmail').value = '';
+            document.getElementById('loginPassword').value = '';
+        }, 500);
+    });
 }
 
 // Afficher un message
