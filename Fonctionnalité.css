@@ -26,14 +26,6 @@
 
     .navbar a:hover{background:#424242}
 
-    .navbar a[onclick*="Logout"]{
-        background:#ff0000;
-    }
-
-    .navbar a[onclick*="Logout"]:hover{
-        background:#cc0000;
-    }
-
     .navbar-logo{
         display:flex;
         align-items:center;
