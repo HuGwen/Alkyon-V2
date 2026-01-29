@@ -61,9 +61,68 @@
 
     /* Fond d'écran sur le site web */
     body{
-        background-image: url("Wallpaper.png");
+        background-image: url("../Images/wallpaper.png");
         background-size: cover;
         background-position: center center;
         background-repeat: no-repeat;
     }
 /* Fin de la ligne de code principale utilisé sur tout les sites web CSS */
+
+.login-button {
+  background-color: #000000; 
+  color: rgb(255, 255, 255); 
+  border-radius: 30px; 
+  
+  text-decoration: none; 
+  padding: 12px 25px; 
+  border: none;
+  
+  font-family: Arial, sans-serif;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  display: inline-block;
+  transition: background-color 0.3s ease; 
+}
+
+.login-button:hover {
+  background-color: #424242; 
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3); 
+}
+
+.login-button:active {
+  background-color: #424242; 
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+  transform: translateY(1px); 
+}
+    body::before {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: #000000;
+        animation: fadeOutBlack 1s ease-in-out forwards;
+        z-index: 1;
+        pointer-events: none;
+    }
+
+    @keyframes fadeOutBlack {
+        from {
+            opacity: 1;
+        }
+        to {
+            opacity: 0;
+        }
+    }
+
+    .home-content{
+        display:flex;
+        flex-direction:column;
+        align-items:center;
+        justify-content:center;
+        min-height:calc(100vh - 64px);
+        text-align:center;
+        padding:24px;
+    }
