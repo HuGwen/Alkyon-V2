@@ -3,5 +3,5 @@
 
 [[redirects]]
   from = "/"
-  to = "/Alkyon.html"
+  to = "Accueil/Alkyon.html"
   status = 200
