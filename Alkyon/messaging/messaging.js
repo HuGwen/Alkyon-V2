@@ -1,8 +1,8 @@
 const messageService = new MessageService();
-let currentChannelId = null;
+let currentFriendId = null;
 let subscription = null;
 
-// Vérifier l'authentification au démarrage
+// Vérifier l'authentification
 function checkAuthentication() {
     const currentUser = localStorage.getItem('alkyon_current_user');
     if (!currentUser) {
@@ -10,50 +10,111 @@ function checkAuthentication() {
     }
 }
 
-// Gérer la déconnexion
+// Déconnexion
 function handleLogout() {
     localStorage.removeItem('alkyon_current_user');
     window.location.href = '../../authentification/index.html';
 }
 
-// Charger les canaux au démarrage
-async function loadChannels() {
+// Charger les amis
+async function loadFriends() {
     try {
-        const channels = await messageService.getUserChannels();
-        const channelsList = document.getElementById('channelsList');
-        channelsList.innerHTML = '';
+        const friends = await messageService.getFriends();
+        const friendsList = document.getElementById('friendsList');
+        friendsList.innerHTML = '';
 
-        if (channels.length === 0) {
-            channelsList.innerHTML = '<p style="color: #72767d; padding: 10px;">Aucun canal</p>';
+        if (friends.length === 0) {
+            friendsList.innerHTML = '<p style="color: #72767d; padding: 10px; font-size: 14px;">Aucun ami pour le moment</p>';
             return;
         }
 
-        channels.forEach(channel => {
-            const channelEl = document.createElement('div');
-            channelEl.className = 'channel-item';
-            channelEl.innerHTML = `<strong>${channel.name}</strong>`;
-            channelEl.onclick = () => selectChannel(channel.id, channel.name);
-            channelsList.appendChild(channelEl);
+        friends.forEach(friend => {
+            const friendEl = document.createElement('div');
+            friendEl.className = 'friend-item';
+            friendEl.id = `friend-${friend.id}`;
+            friendEl.innerHTML = `
+                <div class="friend-avatar">👤</div>
+                <div class="friend-info">
+                    <div class="friend-name">${escapeHtml(friend.name)}</div>
+                </div>
+            `;
+            friendEl.onclick = () => selectFriend(friend.id, friend.name);
+            friendsList.appendChild(friendEl);
         });
     } catch (error) {
-        console.error('Erreur lors du chargement des canaux:', error);
-        document.getElementById('channelsList').innerHTML = '<p style="color: #ff0000; padding: 10px;">Erreur de chargement</p>';
+        console.error('Erreur lors du chargement des amis:', error);
+        document.getElementById('friendsList').innerHTML = '<p style="color: #ff6b6b; padding: 10px;">Erreur de chargement</p>';
     }
 }
 
-// Sélectionner un canal
-async function selectChannel(channelId, channelName) {
-    currentChannelId = channelId;
-    document.getElementById('channelName').textContent = channelName;
+// Charger les demandes d'amitié
+async function loadFriendRequests() {
+    try {
+        const requests = await messageService.getPendingFriendRequests();
+        const requestsContainer = document.getElementById('requestsContainer');
+        const friendRequests = document.getElementById('friendRequests');
+
+        if (requests.length === 0) {
+            requestsContainer.style.display = 'none';
+            return;
+        }
+
+        requestsContainer.style.display = 'block';
+        friendRequests.innerHTML = '';
+
+        requests.forEach(request => {
+            const requestEl = document.createElement('div');
+            requestEl.className = 'friend-request';
+            requestEl.innerHTML = `
+                <div class="request-info">
+                    <div>${escapeHtml(request.requester.name)}</div>
+                </div>
+                <div class="request-actions">
+                    <button class="btn-small btn-accept" onclick="acceptFriendRequest('${request.id}')">✓</button>
+                    <button class="btn-small btn-reject" onclick="rejectFriendRequest('${request.id}')">✕</button>
+                </div>
+            `;
+            friendRequests.appendChild(requestEl);
+        });
+    } catch (error) {
+        console.error('Erreur lors du chargement des demandes:', error);
+    }
+}
+
+// Accepter une demande
+async function acceptFriendRequest(requestId) {
+    try {
+        await messageService.acceptFriendRequest(requestId);
+        await loadFriendRequests();
+        await loadFriends();
+    } catch (error) {
+        alert('Erreur: ' + error.message);
+    }
+}
+
+// Rejeter une demande
+async function rejectFriendRequest(requestId) {
+    try {
+        await messageService.rejectFriendRequest(requestId);
+        await loadFriendRequests();
+    } catch (error) {
+        alert('Erreur: ' + error.message);
+    }
+}
+
+// Sélectionner un ami
+async function selectFriend(friendId, friendName) {
+    currentFriendId = friendId;
+    document.getElementById('friendName').textContent = friendName;
     document.getElementById('inputArea').style.display = 'block';
 
-    // Mettre à jour le style actif du canal
-    document.querySelectorAll('.channel-item').forEach(el => {
+    // Mettre à jour le style actif
+    document.querySelectorAll('.friend-item').forEach(el => {
         el.classList.remove('active');
     });
-    event.target.closest('.channel-item').classList.add('active');
+    document.getElementById(`friend-${friendId}`).classList.add('active');
 
-    // Désabonner de l'ancien canal
+    // Désabonner de l'ancienne conversation
     if (subscription) {
         await subscription.unsubscribe();
     }
@@ -62,7 +123,7 @@ async function selectChannel(channelId, channelName) {
     await loadMessages();
 
     // S'abonner aux nouveaux messages
-    subscription = messageService.subscribeToChannel(channelId, (payload) => {
+    subscription = messageService.subscribeToDirectMessages(friendId, (payload) => {
         if (payload.eventType === 'INSERT') {
             addMessageToUI(payload.new);
         } else if (payload.eventType === 'DELETE') {
@@ -71,10 +132,10 @@ async function selectChannel(channelId, channelName) {
     });
 }
 
-// Charger les messages du canal
+// Charger les messages avec un ami
 async function loadMessages() {
     try {
-        const messages = await messageService.getChannelMessages(currentChannelId);
+        const messages = await messageService.getDirectMessages(currentFriendId);
         const container = document.getElementById('messagesContainer');
         container.innerHTML = '';
 
@@ -87,7 +148,7 @@ async function loadMessages() {
         container.scrollTop = container.scrollHeight;
     } catch (error) {
         console.error('Erreur lors du chargement des messages:', error);
-        document.getElementById('messagesContainer').innerHTML = '<p style="color: #ff0000; text-align: center; margin-top: 20px;">Erreur de chargement des messages</p>';
+        document.getElementById('messagesContainer').innerHTML = '<p style="color: #ff6b6b; text-align: center; margin-top: 20px;">Erreur: ' + error.message + '</p>';
     }
 }
 
@@ -95,42 +156,34 @@ async function loadMessages() {
 function addMessageToUI(message) {
     const container = document.getElementById('messagesContainer');
     
-    // Vérifier si c'est le premier message
-    if (container.innerHTML.includes('Aucun message') || container.innerHTML.includes('Erreur de chargement')) {
+    if (container.innerHTML.includes('Aucun message') || container.innerHTML.includes('Erreur')) {
         container.innerHTML = '';
     }
 
-    const messageEl = document.createElement('div');
-    messageEl.className = 'message';
-    messageEl.id = `msg-${message.id}`;
-    
+    const currentUser = JSON.parse(localStorage.getItem('alkyon_current_user'));
+    const isOwn = message.sender_id === currentUser.id;
     const date = new Date(message.created_at);
     const timeString = date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-    
+
+    const messageEl = document.createElement('div');
+    messageEl.className = `message ${isOwn ? 'own-message' : ''}`;
+    messageEl.id = `msg-${message.id}`;
     messageEl.innerHTML = `
-        <div class="message-header">
-            <strong>${message.profiles.name}</strong>
+        <div class="message-content">
+            <p>${escapeHtml(message.content)}</p>
             <small>${timeString}</small>
         </div>
-        <p>${escapeHtml(message.content)}</p>
     `;
     container.appendChild(messageEl);
     container.scrollTop = container.scrollHeight;
 }
 
-// Supprimer un message de l'interface
+// Supprimer un message
 function removeMessageFromUI(messageId) {
     const messageEl = document.getElementById(`msg-${messageId}`);
     if (messageEl) {
         messageEl.remove();
     }
-}
-
-// Échapper les caractères HTML pour la sécurité
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
 }
 
 // Envoyer un message
@@ -140,65 +193,111 @@ async function sendMessage(event) {
     const content = input.value.trim();
 
     if (!content) return;
-
-    if (!currentChannelId) {
-        alert('Veuillez sélectionner un canal');
+    if (!currentFriendId) {
+        alert('Sélectionnez un ami');
         return;
     }
 
     try {
-        await messageService.sendMessage(currentChannelId, content);
+        await messageService.sendDirectMessage(currentFriendId, content);
         input.value = '';
     } catch (error) {
-        console.error('Erreur lors de l\'envoi du message:', error);
-        alert('Erreur lors de l\'envoi du message');
+        alert('Erreur: ' + error.message);
     }
 }
 
-// Gérer le modal de création de canal
-const modal = document.getElementById('createChannelModal');
-const createChannelBtn = document.getElementById('createChannelBtn');
-const closeBtn = document.querySelector('.close');
+// Échapper HTML
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
 
-createChannelBtn.addEventListener('click', () => {
+// ===== GESTION DU MODAL =====
+const modal = document.getElementById('addFriendModal');
+const addFriendBtn = document.getElementById('addFriendBtn');
+const closeBtn = document.querySelector('.close');
+const logoutBtn = document.getElementById('logoutBtn');
+const searchInput = document.getElementById('searchInput');
+const searchResults = document.getElementById('searchResults');
+
+addFriendBtn.addEventListener('click', () => {
     modal.style.display = 'block';
+    searchInput.focus();
 });
 
 closeBtn.addEventListener('click', () => {
     modal.style.display = 'none';
+    searchResults.innerHTML = '';
 });
+
+logoutBtn.addEventListener('click', handleLogout);
 
 window.addEventListener('click', (event) => {
     if (event.target === modal) {
         modal.style.display = 'none';
+        searchResults.innerHTML = '';
     }
 });
 
-// Créer un canal
-document.getElementById('createChannelForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const name = document.getElementById('channelNameInput').value.trim();
-    const desc = document.getElementById('channelDescInput').value.trim();
+// Rechercher un utilisateur
+let searchTimeout;
+searchInput.addEventListener('input', async (e) => {
+    clearTimeout(searchTimeout);
+    const query = e.target.value.trim();
 
-    if (!name) {
-        alert('Veuillez entrer un nom de canal');
+    if (query.length < 2) {
+        searchResults.innerHTML = '';
         return;
     }
 
-    try {
-        await messageService.createChannel(name, 'group', desc);
-        document.getElementById('channelNameInput').value = '';
-        document.getElementById('channelDescInput').value = '';
-        modal.style.display = 'none';
-        await loadChannels();
-    } catch (error) {
-        console.error('Erreur lors de la création du canal:', error);
-        alert('Erreur lors de la création du canal: ' + error.message);
-    }
+    searchTimeout = setTimeout(async () => {
+        try {
+            const results = await messageService.searchUsers(query);
+            searchResults.innerHTML = '';
+
+            if (results.length === 0) {
+                searchResults.innerHTML = '<p style="color: #72767d; padding: 10px;">Aucun résultat</p>';
+                return;
+            }
+
+            results.forEach(user => {
+                const resultEl = document.createElement('div');
+                resultEl.className = 'search-result';
+                resultEl.innerHTML = `
+                    <div>
+                        <div class="result-name">${escapeHtml(user.name)}</div>
+                        <div class="result-email">${escapeHtml(user.email)}</div>
+                    </div>
+                    <button class="btn-add" onclick="sendFriendRequest('${user.id}')">Ajouter</button>
+                `;
+                searchResults.appendChild(resultEl);
+            });
+        } catch (error) {
+            searchResults.innerHTML = '<p style="color: #ff6b6b; padding: 10px;">Erreur: ' + error.message + '</p>';
+        }
+    }, 300);
 });
+
+// Envoyer une demande d'amitié
+async function sendFriendRequest(userId) {
+    try {
+        await messageService.sendFriendRequest(userId);
+        alert('Demande d\'amitié envoyée !');
+        searchInput.value = '';
+        searchResults.innerHTML = '';
+    } catch (error) {
+        alert('Erreur: ' + error.message);
+    }
+}
 
 // Initialiser
 window.addEventListener('load', () => {
     checkAuthentication();
-    loadChannels();
+    loadFriends();
+    loadFriendRequests();
+    // Rafraîchir les amis et demandes toutes les 5 secondes
+    setInterval(() => {
+        loadFriendRequests();
+    }, 5000);
 });

@@ -1,63 +1,142 @@
 class MessageService {
     constructor() {
-        this.supabase = window.supabase;
+        // Utiliser la variable globale supabase depuis auth.js
+        this.supabaseInstance = null;
+        this.waitForSupabase();
     }
 
-    // Créer un canal direct ou de groupe
-    async createChannel(name, type = 'group', description = '') {
-        const currentUser = JSON.parse(localStorage.getItem('alkyon_current_user'));
+    async waitForSupabase() {
+        for (let i = 0; i < 50; i++) {
+            if (typeof supabase !== 'undefined') {
+                this.supabaseInstance = supabase;
+                return;
+            }
+            await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        throw new Error('Supabase n\'a pas pu être initialisé');
+    }
+
+    get supabase() {
+        if (!this.supabaseInstance) {
+            this.supabaseInstance = window.supabase;
+        }
+        return this.supabaseInstance;
+    }
+
+    getCurrentUser() {
+        return JSON.parse(localStorage.getItem('alkyon_current_user'));
+    }
+
+    // ===== GESTION DES AMIS =====
+    
+    // Envoyer une demande d'amitié
+    async sendFriendRequest(receiverId) {
+        const currentUser = this.getCurrentUser();
         
         const { data, error } = await this.supabase
-            .from('channels')
+            .from('friendships')
             .insert({
-                name: name,
-                type: type,
-                description: description,
-                created_by: currentUser.id
+                requester_id: currentUser.id,
+                receiver_id: receiverId,
+                status: 'pending'
             })
             .select();
 
         if (error) throw error;
-
-        // Ajouter l'utilisateur au canal
-        await this.addMemberToChannel(data[0].id, currentUser.id);
         return data[0];
     }
 
-    // Ajouter un membre au canal
-    async addMemberToChannel(channelId, userId) {
+    // Accepter une demande d'amitié
+    async acceptFriendRequest(requestId) {
+        const { data, error } = await this.supabase
+            .from('friendships')
+            .update({ status: 'accepted' })
+            .eq('id', requestId)
+            .select();
+
+        if (error) throw error;
+        return data[0];
+    }
+
+    // Rejeter une demande d'amitié
+    async rejectFriendRequest(requestId) {
         const { error } = await this.supabase
-            .from('channel_members')
-            .insert({ channel_id: channelId, user_id: userId });
-        
+            .from('friendships')
+            .delete()
+            .eq('id', requestId);
+
         if (error) throw error;
     }
 
-    // Récupérer les canaux de l'utilisateur
-    async getUserChannels() {
-        const currentUser = JSON.parse(localStorage.getItem('alkyon_current_user'));
+    // Récupérer la liste des amis acceptés
+    async getFriends() {
+        const currentUser = this.getCurrentUser();
         
         const { data, error } = await this.supabase
-            .from('channel_members')
+            .from('friendships')
             .select(`
-                channel_id,
-                channels:channels(id, name, type, description)
+                id,
+                requester:requester_id(id, name, email),
+                receiver:receiver_id(id, name, email)
             `)
-            .eq('user_id', currentUser.id);
+            .or(`requester_id.eq.${currentUser.id},receiver_id.eq.${currentUser.id}`)
+            .eq('status', 'accepted');
 
         if (error) throw error;
-        return data.map(item => item.channels);
+
+        // Transformer les données pour obtenir les amis
+        return data.map(friendship => {
+            const friend = friendship.requester_id === currentUser.id 
+                ? friendship.receiver 
+                : friendship.requester;
+            return friend;
+        });
     }
 
-    // Envoyer un message
-    async sendMessage(channelId, content) {
-        const currentUser = JSON.parse(localStorage.getItem('alkyon_current_user'));
+    // Récupérer les demandes d'amitié reçues
+    async getPendingFriendRequests() {
+        const currentUser = this.getCurrentUser();
         
         const { data, error } = await this.supabase
-            .from('messages')
+            .from('friendships')
+            .select(`
+                id,
+                requester:requester_id(id, name, email),
+                status
+            `)
+            .eq('receiver_id', currentUser.id)
+            .eq('status', 'pending');
+
+        if (error) throw error;
+        return data;
+    }
+
+    // Rechercher un utilisateur
+    async searchUsers(query) {
+        const currentUser = this.getCurrentUser();
+        
+        const { data, error } = await this.supabase
+            .from('profiles')
+            .select('id, name, email')
+            .neq('id', currentUser.id)
+            .ilike('name', `%${query}%`)
+            .limit(10);
+
+        if (error) throw error;
+        return data;
+    }
+
+    // ===== MESSAGES PRIVÉS =====
+
+    // Envoyer un message privé
+    async sendDirectMessage(receiverId, content) {
+        const currentUser = this.getCurrentUser();
+        
+        const { data, error } = await this.supabase
+            .from('direct_messages')
             .insert({
-                channel_id: channelId,
-                user_id: currentUser.id,
+                sender_id: currentUser.id,
+                receiver_id: receiverId,
                 content: content
             })
             .select();
@@ -66,19 +145,22 @@ class MessageService {
         return data[0];
     }
 
-    // Récupérer les messages d'un canal
-    async getChannelMessages(channelId, limit = 50) {
+    // Récupérer les messages privés avec un utilisateur
+    async getDirectMessages(friendId, limit = 50) {
+        const currentUser = this.getCurrentUser();
+        
         const { data, error } = await this.supabase
-            .from('messages')
+            .from('direct_messages')
             .select(`
                 id,
                 content,
                 created_at,
                 edited,
-                user_id,
-                profiles:profiles(id, name, email)
+                sender_id,
+                sender:sender_id(id, name, email),
+                receiver:receiver_id(id, name, email)
             `)
-            .eq('channel_id', channelId)
+            .or(`and(sender_id.eq.${currentUser.id},receiver_id.eq.${friendId}),and(sender_id.eq.${friendId},receiver_id.eq.${currentUser.id})`)
             .order('created_at', { ascending: true })
             .limit(limit);
 
@@ -86,23 +168,31 @@ class MessageService {
         return data;
     }
 
-    // Supprimer un message
-    async deleteMessage(messageId) {
+    // Supprimer un message privé
+    async deleteDirectMessage(messageId) {
         const { error } = await this.supabase
-            .from('messages')
+            .from('direct_messages')
             .delete()
             .eq('id', messageId);
 
         if (error) throw error;
     }
 
-    // S'abonner aux nouveaux messages en temps réel
-    subscribeToChannel(channelId, callback) {
+    // S'abonner aux messages privés
+    subscribeToDirectMessages(friendId, callback) {
+        const currentUser = this.getCurrentUser();
+        const channel = `dm_${[currentUser.id, friendId].sort().join('_')}`;
+        
         return this.supabase
-            .channel(`messages:channel_${channelId}`)
+            .channel(channel)
             .on('postgres_changes', 
-                { event: '*', schema: 'public', table: 'messages', filter: `channel_id=eq.${channelId}` },
-                callback
+                { event: '*', schema: 'public', table: 'direct_messages' },
+                (payload) => {
+                    const msg = payload.new || payload.old;
+                    const isRelevant = (msg.sender_id === currentUser.id && msg.receiver_id === friendId) ||
+                                     (msg.sender_id === friendId && msg.receiver_id === currentUser.id);
+                    if (isRelevant) callback(payload);
+                }
             )
             .subscribe();
     }

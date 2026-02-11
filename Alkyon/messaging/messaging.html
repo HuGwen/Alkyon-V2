@@ -8,32 +8,33 @@
     <link rel="stylesheet" href="messaging.css">
 </head>
 <body>
-    <nav class="navbar">
-        <div class="navbar-logo">
-            <img src="../../Images/Logo_Alkyon_Backround.png" alt="Logo" height="40">
-            <li><a href="../Home.html">Accueil</a></li>
-            <li><a href="../../Accueil/Alkyon.html">Accueil Principal</a></li>
-            <li><a href="../../Accueil/Fonctionnalité/Fonctionnalité.html">Fonctionnalités</a></li>
-            <li><a href="../../Accueil/Telechargement/Telechargement.html">Téléchargement</a></li>
-                <hr style="margin-top: 5px; margin-bottom: 5px;">
-            <li><a href="../../authentification/index.html" onclick="handleLogout()">Déconnexion</a></li>
-        </ul>
-    </nav>
-
     <div class="messaging-container">
-        <!-- Sidebar avec liste des canaux -->
+        <!-- Sidebar avec liste des amis -->
         <aside class="sidebar">
             <div class="sidebar-header">
-                <h2>Canaux</h2>
-                <button id="createChannelBtn" class="btn-icon">+</button>
+                <h2>Alkyon</h2>
+                <div class="sidebar-actions">
+                    <button id="addFriendBtn" class="btn-icon" title="Ajouter un ami">➕</button>
+                    <button id="logoutBtn" class="btn-icon" title="Déconnexion">🚪</button>
+                </div>
             </div>
-            <div id="channelsList" class="channels-list"></div>
+
+            <!-- Demandes d'amitié -->
+            <div id="requestsContainer" style="display: none; margin-bottom: 15px;">
+                <h3 style="font-size: 12px; color: #72767d; text-transform: uppercase; padding: 10px 5px;">Demandes</h3>
+                <div id="friendRequests" class="friend-requests"></div>
+            </div>
+
+            <!-- Liste des amis -->
+            <h3 style="font-size: 12px; color: #72767d; text-transform: uppercase; padding: 10px 5px; margin-top: 15px;">Amis en ligne</h3>
+            <div id="friendsList" class="friends-list"></div>
         </aside>
 
         <!-- Zone de conversation -->
         <main class="chat-area">
             <div id="chatHeader" class="chat-header">
-                <h3 id="channelName">Sélectionnez un canal</h3>
+                <h3 id="friendName">Sélectionnez un ami</h3>
+                <span id="friendStatus" class="friend-status"></span>
             </div>
 
             <div id="messagesContainer" class="messages-container"></div>
@@ -52,16 +53,15 @@
         </main>
     </div>
 
-    <!-- Modal créer un canal -->
-    <div id="createChannelModal" class="modal">
+    <!-- Modal ajouter un ami -->
+    <div id="addFriendModal" class="modal">
         <div class="modal-content">
             <span class="close">&times;</span>
-            <h2>Créer un canal</h2>
-            <form id="createChannelForm">
-                <input type="text" id="channelNameInput" placeholder="Nom du canal" required>
-                <input type="text" id="channelDescInput" placeholder="Description (optionnel)">
-                <button type="submit" class="btn">Créer</button>
-            </form>
+            <h2>Ajouter un ami</h2>
+            <div class="search-container">
+                <input type="text" id="searchInput" placeholder="Rechercher un utilisateur..." autocomplete="off">
+                <div id="searchResults" class="search-results"></div>
+            </div>
         </div>
     </div>
 
