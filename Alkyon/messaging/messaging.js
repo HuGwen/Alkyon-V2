@@ -116,20 +116,39 @@ async function selectFriend(friendId, friendName) {
 
     // Désabonner de l'ancienne conversation
     if (subscription) {
+        console.log('Désabonnement de la conversation précédente');
         await subscription.unsubscribe();
+        subscription = null;
     }
 
     // Charger les messages
     await loadMessages();
 
-    // S'abonner aux nouveaux messages
+    // S'abonner aux nouveaux messages avec gestion améliorée
     subscription = messageService.subscribeToDirectMessages(friendId, (payload) => {
+        console.log('Événement temps réel reçu:', payload);
+        
         if (payload.eventType === 'INSERT') {
+            console.log('Nouveau message reçu:', payload.new);
             addMessageToUI(payload.new);
+        } else if (payload.eventType === 'UPDATE') {
+            console.log('Message mis à jour:', payload.new);
+            // Mettre à jour le message
+            const msgEl = document.getElementById(`msg-${payload.new.id}`);
+            if (msgEl) {
+                msgEl.remove();
+                addMessageToUI(payload.new);
+            }
         } else if (payload.eventType === 'DELETE') {
+            console.log('Message supprimé:', payload.old);
             removeMessageFromUI(payload.old.id);
         }
     });
+
+    if (!subscription) {
+        console.error('Erreur lors de l\'abonnement aux messages');
+        alert('Erreur de connexion au service de messagerie');
+    }
 }
 
 // Charger les messages avec un ami
@@ -145,7 +164,9 @@ async function loadMessages() {
         }
 
         messages.forEach(msg => addMessageToUI(msg));
-        container.scrollTop = container.scrollHeight;
+        setTimeout(() => {
+            container.scrollTop = container.scrollHeight;
+        }, 100);
     } catch (error) {
         console.error('Erreur lors du chargement des messages:', error);
         document.getElementById('messagesContainer').innerHTML = '<p style="color: #ff6b6b; text-align: center; margin-top: 20px;">Erreur: ' + error.message + '</p>';
@@ -158,6 +179,11 @@ function addMessageToUI(message) {
     
     if (container.innerHTML.includes('Aucun message') || container.innerHTML.includes('Erreur')) {
         container.innerHTML = '';
+    }
+
+    // Vérifier si le message existe déjà
+    if (document.getElementById(`msg-${message.id}`)) {
+        return;
     }
 
     const currentUser = JSON.parse(localStorage.getItem('alkyon_current_user'));

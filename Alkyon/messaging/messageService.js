@@ -181,19 +181,39 @@ class MessageService {
     // S'abonner aux messages privés
     subscribeToDirectMessages(friendId, callback) {
         const currentUser = this.getCurrentUser();
+        if (!currentUser) {
+            console.error('Utilisateur non authentifié');
+            return null;
+        }
+
         const channel = `dm_${[currentUser.id, friendId].sort().join('_')}`;
         
-        return this.supabase
-            .channel(channel)
-            .on('postgres_changes', 
-                { event: '*', schema: 'public', table: 'direct_messages' },
-                (payload) => {
-                    const msg = payload.new || payload.old;
-                    const isRelevant = (msg.sender_id === currentUser.id && msg.receiver_id === friendId) ||
-                                     (msg.sender_id === friendId && msg.receiver_id === currentUser.id);
-                    if (isRelevant) callback(payload);
+        const subscription = this.supabase
+            .channel(channel, {
+                config: {
+                    broadcast: { self: true }
                 }
+            })
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'direct_messages',
+                    filter: `or(and(sender_id.eq.${currentUser.id},receiver_id.eq.${friendId}),and(sender_id.eq.${friendId},receiver_id.eq.${currentUser.id}))`
+                },
+                callback
             )
-            .subscribe();
+            .subscribe((status) => {
+                if (status === 'SUBSCRIBED') {
+                    console.log(`Abonné au canal DM avec ${friendId}`);
+                } else if (status === 'CLOSED') {
+                    console.log('Abonnement fermé');
+                } else if (status === 'CHANNEL_ERROR') {
+                    console.error('Erreur du canal');
+                }
+            });
+
+        return subscription;
     }
 }
