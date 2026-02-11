@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <link rel="icon" type="image/png" href="../../Images/Logo_Alkyon_png.png">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Messagerie - Alkyon</title>
+    <link rel="stylesheet" href="messaging.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="navbar-logo">
+            <img src="../../Images/Logo_Alkyon_Backround.png" alt="Logo" height="40">
+            <li><a href="../Home.html">Accueil</a></li>
+            <li><a href="../../Accueil/Alkyon.html">Accueil Principal</a></li>
+            <li><a href="../../Accueil/Fonctionnalité/Fonctionnalité.html">Fonctionnalités</a></li>
+            <li><a href="../../Accueil/Telechargement/Telechargement.html">Téléchargement</a></li>
+                <hr style="margin-top: 5px; margin-bottom: 5px;">
+            <li><a href="../../authentification/index.html" onclick="handleLogout()">Déconnexion</a></li>
+        </ul>
+    </nav>
+
+    <div class="messaging-container">
+        <!-- Sidebar avec liste des canaux -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2>Canaux</h2>
+                <button id="createChannelBtn" class="btn-icon">+</button>
+            </div>
+            <div id="channelsList" class="channels-list"></div>
+        </aside>
+
+        <!-- Zone de conversation -->
+        <main class="chat-area">
+            <div id="chatHeader" class="chat-header">
+                <h3 id="channelName">Sélectionnez un canal</h3>
+            </div>
+
+            <div id="messagesContainer" class="messages-container"></div>
+
+            <!-- Zone de saisie -->
+            <div class="message-input-area" id="inputArea" style="display: none;">
+                <form id="messageForm" onsubmit="sendMessage(event)">
+                    <input 
+                        type="text" 
+                        id="messageInput" 
+                        placeholder="Tapez un message..." 
+                        required>
+                    <button type="submit" class="btn-send">Envoyer</button>
+                </form>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal créer un canal -->
+    <div id="createChannelModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Créer un canal</h2>
+            <form id="createChannelForm">
+                <input type="text" id="channelNameInput" placeholder="Nom du canal" required>
+                <input type="text" id="channelDescInput" placeholder="Description (optionnel)">
+                <button type="submit" class="btn">Créer</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.47.0"></script>
+    <script src="../../authentification/auth.js"></script>
+    <script src="messageService.js"></script>
+    <script src="messaging.js"></script>
+</body>
+</html>
