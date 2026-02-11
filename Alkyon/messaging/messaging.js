@@ -1,6 +1,7 @@
 const messageService = new MessageService();
 let currentFriendId = null;
 let subscription = null;
+let pollingInterval = null;
 
 // Vérifier l'authentification
 function checkAuthentication() {
@@ -114,6 +115,12 @@ async function selectFriend(friendId, friendName) {
     });
     document.getElementById(`friend-${friendId}`).classList.add('active');
 
+    // Arrêter le polling précédent
+    if (pollingInterval) {
+        clearInterval(pollingInterval);
+        pollingInterval = null;
+    }
+
     // Désabonner de l'ancienne conversation
     if (subscription) {
         console.log('Désabonnement de la conversation précédente');
@@ -133,7 +140,6 @@ async function selectFriend(friendId, friendName) {
             addMessageToUI(payload.new);
         } else if (payload.eventType === 'UPDATE') {
             console.log('Message mis à jour:', payload.new);
-            // Mettre à jour le message
             const msgEl = document.getElementById(`msg-${payload.new.id}`);
             if (msgEl) {
                 msgEl.remove();
@@ -149,6 +155,23 @@ async function selectFriend(friendId, friendName) {
         console.error('Erreur lors de l\'abonnement aux messages');
         alert('Erreur de connexion au service de messagerie');
     }
+
+    // Ajouter un polling toutes les 3 secondes comme fallback
+    pollingInterval = setInterval(async () => {
+        try {
+            const messages = await messageService.getDirectMessages(friendId, 10);
+            if (messages && messages.length > 0) {
+                // Ajouter les nouveaux messages qu'on n'a pas
+                messages.forEach(msg => {
+                    if (!document.getElementById(`msg-${msg.id}`)) {
+                        addMessageToUI(msg);
+                    }
+                });
+            }
+        } catch (error) {
+            console.error('Erreur lors du polling:', error);
+        }
+    }, 3000);
 }
 
 // Charger les messages avec un ami
@@ -225,10 +248,34 @@ async function sendMessage(event) {
         return;
     }
 
+    const currentUser = JSON.parse(localStorage.getItem('alkyon_current_user'));
+    
+    // Créer un message local immédiatement
+    const localMessage = {
+        id: 'temp-' + Date.now(),
+        content: content,
+        sender_id: currentUser.id,
+        receiver_id: currentFriendId,
+        created_at: new Date().toISOString()
+    };
+    
+    // Afficher le message localement
+    addMessageToUI(localMessage);
+    input.value = '';
+
     try {
-        await messageService.sendDirectMessage(currentFriendId, content);
-        input.value = '';
+        // Envoyer à Supabase
+        const sentMessage = await messageService.sendDirectMessage(currentFriendId, content);
+        
+        // Remplacer le message temporaire par le vrai
+        const tempEl = document.getElementById(`msg-${localMessage.id}`);
+        if (tempEl) {
+            tempEl.id = `msg-${sentMessage.id}`;
+        }
     } catch (error) {
+        console.error('Erreur lors de l\'envoi:', error);
+        // Supprimer le message local en cas d'erreur
+        removeMessageFromUI(localMessage.id);
         alert('Erreur: ' + error.message);
     }
 }
