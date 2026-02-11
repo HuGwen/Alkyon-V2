@@ -189,6 +189,7 @@ function addMessageToUI(message) {
     const currentUser = JSON.parse(localStorage.getItem('alkyon_current_user'));
     const isOwn = message.sender_id === currentUser.id;
     const date = new Date(message.created_at);
+    date.setHours(date.getHours() + 1); // Ajouter 1 heure
     const timeString = date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 
     const messageEl = document.createElement('div');
